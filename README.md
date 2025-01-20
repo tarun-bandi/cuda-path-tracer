@@ -68,3 +68,4 @@ MIT License # Performance improvements
 # Add volume rendering support
 # Add advanced materials
 # Add interactive features
+# Performance improvements
