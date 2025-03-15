@@ -78,5 +78,13 @@ target_compile_options(VolumetricPathTracer PRIVATE
     >
 )
 
-# Copy assets
-file(COPY assets DESTINATION ${CMAKE_BINARY_DIR}) 
+# Create assets directory if it doesn't exist
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/assets)
+
+# Copy assets if they exist
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+    file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
+    message(STATUS "Assets directory copied successfully")
+else()
+    message(WARNING "Assets directory not found, continuing without assets")
+endif() 
