@@ -3,6 +3,7 @@
 #include <cuda_gl_interop.h>
 #include <iostream>
 #include <vector>
+#include <fstream>
 #include "core/camera.h"
 #include "core/scene.h"
 #include "core/materials.h"
@@ -27,12 +28,17 @@
 GLFWwindow* window = nullptr;
 cudaGraphicsResource* cuda_pbo_resource = nullptr;
 GLuint pbo = 0;
+GLuint texture = 0;
 float3* d_output = nullptr;
 int width = 1280;
 int height = 720;
 int samples_per_pixel = 1024;
 bool render_complete = false;
 bool headless_mode = false;
+Scene scene;
+Camera camera;
+BVH bvh;
+VolumeGrid volume_grid;
 
 // Function declarations
 void setup_scene(Scene& scene, Camera& camera, BVH& bvh, VolumeGrid& volume_grid);
@@ -87,19 +93,19 @@ void setup_scene(Scene& scene, Camera& camera, BVH& bvh, VolumeGrid& volume_grid
     scene.materials.push_back(light_material);
     
     // Create ground plane
-    scene.add_plane(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0), 0);
+    scene.addPlane(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0), 0);
     
     // Create glass sphere
-    scene.add_sphere(glm::vec3(0, 1, 0), 1.0f, 1);
+    scene.addSphere(glm::vec3(0, 1, 0), 1.0f, 1);
     
     // Create light
-    scene.add_sphere(glm::vec3(0, 5, 0), 0.5f, 2);
+    scene.addSphere(glm::vec3(0, 5, 0), 0.5f, 2);
     
     // Setup volume grid
     volume_grid.init(
-        glm::vec3(-2, 0, -2),  // min bounds
-        glm::vec3(2, 4, 2),    // max bounds
-        make_int3(32, 32, 32)  // resolution
+        make_float3(-2, 0, -2),  // min bounds
+        make_float3(2, 4, 2),    // max bounds
+        make_int3(32, 32, 32)    // resolution
     );
     
     // Add some volumetric media
@@ -228,7 +234,6 @@ int main(int argc, char** argv) {
     }
 
     // Create texture
-    GLuint texture;
     if (!headless_mode) {
         glGenTextures(1, &texture);
         glBindTexture(GL_TEXTURE_2D, texture);
@@ -238,28 +243,23 @@ int main(int argc, char** argv) {
     }
 
     // Setup scene
-    Scene scene;
-    Camera camera;
-    BVH bvh;
-    VolumeGrid volume_grid;
     setup_scene(scene, camera, bvh, volume_grid);
 
     if (headless_mode) {
         // Render in headless mode
         render();
         
-        // Save output image
+        // Save output to PPM file
         std::vector<float3> h_output(width * height);
         CUDA_CHECK(cudaMemcpy(h_output.data(), d_output, width * height * sizeof(float3), cudaMemcpyDeviceToHost));
         
-        // Save as PPM
         std::ofstream out("output.ppm");
         out << "P3\n" << width << " " << height << "\n255\n";
-        for (int i = 0; i < width * height; i++) {
+        for (int i = 0; i < width * height; ++i) {
             float3 pixel = h_output[i];
-            int r = static_cast<int>(255.99f * sqrtf(pixel.x));
-            int g = static_cast<int>(255.99f * sqrtf(pixel.y));
-            int b = static_cast<int>(255.99f * sqrtf(pixel.z));
+            int r = static_cast<int>(255.99f * pixel.x);
+            int g = static_cast<int>(255.99f * pixel.y);
+            int b = static_cast<int>(255.99f * pixel.z);
             out << r << " " << g << " " << b << "\n";
         }
         out.close();
@@ -267,21 +267,19 @@ int main(int argc, char** argv) {
         // Main loop
         while (!glfwWindowShouldClose(window)) {
             display();
-            glfwSwapBuffers(window);
             glfwPollEvents();
         }
     }
 
-    // Cleanup
     cleanup();
     return 0;
 }
 
 void cleanup() {
     if (!headless_mode) {
-        cudaGraphicsUnregisterResource(cuda_pbo_resource);
         glDeleteBuffers(1, &pbo);
         glDeleteTextures(1, &texture);
+        cudaGraphicsUnregisterResource(cuda_pbo_resource);
         glfwDestroyWindow(window);
         glfwTerminate();
     } else {
