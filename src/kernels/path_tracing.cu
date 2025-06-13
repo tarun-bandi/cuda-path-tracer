@@ -1,3 +1,6 @@
+#include <cuda_runtime.h>
+#include <curand_kernel.h>
+#include <device_launch_parameters.h>
 #include "../common.h"
 #include "../core/scene.h"
 #include "../core/camera.h"
@@ -260,7 +263,32 @@ __device__ float3 rayColor(Ray r,
     return color;
 }
 
-// CUDA kernel for path tracing
+// CUDA kernel declarations
+__global__ void curand_init_kernel(curandState* states, int n, unsigned int seed);
+__global__ void path_trace_kernel(
+    float3* output,
+    const Camera* camera,
+    const Scene* scene,
+    const BVH* bvh,
+    const VolumeGrid* volume_grid,
+    int width,
+    int height,
+    int samples_per_pixel,
+    curandState* states
+);
+
+// Helper functions
+__device__ float3 sample_material(const Material& material, const float3& wo, const float3& normal, float3& wi, curandState* state, float* pdf);
+__device__ bool near_zero(const float3& v);
+
+// CUDA kernel implementations
+__global__ void curand_init_kernel(curandState* states, int n, unsigned int seed) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        curand_init(seed, idx, 0, &states[idx]);
+    }
+}
+
 __global__ void path_trace_kernel(
     float3* output,
     const Camera* camera,
@@ -274,68 +302,29 @@ __global__ void path_trace_kernel(
 ) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
-    
     if (x >= width || y >= height) return;
-    
-    int pixel_index = y * width + x;
-    curandState* state = &states[pixel_index];
-    
-    float3 L = make_float3(0.0f);
-    
+
+    int idx = y * width + x;
+    curandState* state = &states[idx];
+    float3 pixel_color = make_float3(0.0f);
+
     for (int s = 0; s < samples_per_pixel; ++s) {
-        float u = (x + random_float(state)) / width;
-        float v = (y + random_float(state)) / height;
-        
+        float u = (x + curand_uniform(state)) / width;
+        float v = (y + curand_uniform(state)) / height;
         Ray ray = camera->get_ray(u, v, state);
         float3 path_throughput = make_float3(1.0f);
         float3 path_radiance = make_float3(0.0f);
-        
-        for (int depth = 0; depth < MAX_DEPTH; ++depth) {
-            // Find closest intersection
+
+        for (int depth = 0; depth < 8; ++depth) {
             Intersection isect;
-            float t_max = ray.tmax;
-            
             if (bvh->intersect(ray, isect)) {
-                t_max = isect.t;
-            }
-            
-            // Check for volume intersection
-            VolumeIntersection vol_isect;
-            if (volume_grid->intersect(ray, vol_isect)) {
-                if (vol_isect.t_enter < t_max) {
-                    // Volume scattering
-                    float3 vol_radiance = estimate_volume_radiance(
-                        ray,
-                        vol_isect.volume,
-                        state,
-                        vol_isect.t_enter,
-                        fminf(vol_isect.t_exit, t_max)
-                    );
-                    
-                    path_radiance += path_throughput * vol_radiance;
-                    
-                    // Update ray for next bounce
-                    if (vol_isect.t_exit < t_max) {
-                        ray.origin = ray.point_at(vol_isect.t_exit);
-                        ray.tmin = EPSILON;
-                        ray.tmax = t_max - vol_isect.t_exit;
-                        continue;
-                    }
-                }
-            }
-            
-            if (isect.t < INFINITY) {
-                // Surface scattering
                 const Material& material = scene->materials[isect.material_id];
-                
-                // Add emission
                 path_radiance += path_throughput * material.emission;
-                
-                // Sample material
+
                 float3 wi;
                 float pdf;
                 float3 f = sample_material(material, -ray.direction, isect.normal, wi, state, &pdf);
-                
+
                 if (pdf > 0.0f && !near_zero(f)) {
                     path_throughput *= f * fabsf(dot(wi, isect.normal)) / pdf;
                     ray = Ray(isect.position, wi);
@@ -343,23 +332,34 @@ __global__ void path_trace_kernel(
                     break;
                 }
             } else {
-                // Environment map
                 path_radiance += path_throughput * scene->environment_map.sample(ray.direction);
                 break;
             }
-            
+
             // Russian roulette
-            if (depth > 2) {
-                float q = 1.0f - min(1.0f, max(path_throughput.x, max(path_throughput.y, path_throughput.z)));
-                if (random_float(state) < q) break;
+            if (depth > 3) {
+                float q = 1.0f - std::min(1.0f, std::max(path_throughput.x, std::max(path_throughput.y, path_throughput.z)));
+                if (curand_uniform(state) < q) break;
                 path_throughput /= (1.0f - q);
             }
         }
-        
-        L += path_radiance;
+
+        pixel_color += path_radiance;
     }
-    
-    output[pixel_index] = L / samples_per_pixel;
+
+    output[idx] = pixel_color / samples_per_pixel;
+}
+
+// Helper function implementations
+__device__ float3 sample_material(const Material& material, const float3& wo, const float3& normal, float3& wi, curandState* state, float* pdf) {
+    // Implement material sampling here
+    // This is a placeholder - you'll need to implement the actual material sampling logic
+    return make_float3(1.0f);
+}
+
+__device__ bool near_zero(const float3& v) {
+    const float s = 1e-8;
+    return (fabsf(v.x) < s) && (fabsf(v.y) < s) && (fabsf(v.z) < s);
 }
 
 // Host function to launch the kernel
@@ -375,15 +375,11 @@ void launch_path_trace(
 ) {
     dim3 block(16, 16);
     dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
-    
-    // Allocate and initialize random states
+
     curandState* states;
     cudaMalloc(&states, width * height * sizeof(curandState));
-    
-    // Initialize random states
+
     curand_init_kernel<<<grid, block>>>(states, width * height, time(NULL));
-    
-    // Launch path tracing kernel
     path_trace_kernel<<<grid, block>>>(
         output,
         camera,
@@ -395,14 +391,6 @@ void launch_path_trace(
         samples_per_pixel,
         states
     );
-    
-    // Cleanup
-    cudaFree(states);
-}
 
-__global__ void curand_init_kernel(curandState* states, int n, unsigned int seed) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < n) {
-        curand_init(seed, idx, 0, &states[idx]);
-    }
+    cudaFree(states);
 } 

@@ -1,9 +1,11 @@
 #include <GLFW/glfw3.h>
+#include <GL/glew.h>  // Add GLEW for OpenGL function declarations
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <algorithm>  // for std::min, std::max
 #include "core/camera.h"
 #include "core/scene.h"
 #include "core/materials.h"
@@ -61,30 +63,30 @@ void setup_scene(Scene& scene, Camera& camera, BVH& bvh, VolumeGrid& volume_grid
     
     // Materials
     Material ground_material = {
-        glm::vec3(0.8f, 0.8f, 0.8f),  // albedo
+        make_float3(0.8f, 0.8f, 0.8f),  // albedo
         0.0f,                         // metallic
         0.5f,                         // roughness
         1.5f,                         // ior
         0.0f,                         // transmission
-        glm::vec3(0.0f)              // emission
+        make_float3(0.0f)              // emission
     };
     
     Material glass_material = {
-        glm::vec3(1.0f),             // albedo
+        make_float3(1.0f),             // albedo
         0.0f,                         // metallic
         0.0f,                         // roughness
         1.5f,                         // ior
         1.0f,                         // transmission
-        glm::vec3(0.0f)              // emission
+        make_float3(0.0f)              // emission
     };
     
     Material light_material = {
-        glm::vec3(0.0f),             // albedo
+        make_float3(0.0f),             // albedo
         0.0f,                         // metallic
         0.0f,                         // roughness
         1.0f,                         // ior
         0.0f,                         // transmission
-        glm::vec3(10.0f)             // emission
+        make_float3(10.0f)             // emission
     };
     
     // Add materials to scene
@@ -93,13 +95,13 @@ void setup_scene(Scene& scene, Camera& camera, BVH& bvh, VolumeGrid& volume_grid
     scene.materials.push_back(light_material);
     
     // Create ground plane
-    scene.addPlane(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0), 0);
+    scene.addPlane(make_float3(0, 0, 0), make_float3(0, 1, 0), 0);
     
     // Create glass sphere
-    scene.addSphere(glm::vec3(0, 1, 0), 1.0f, 1);
+    scene.addSphere(make_float3(0, 1, 0), 1.0f, 1);
     
     // Create light
-    scene.addSphere(glm::vec3(0, 5, 0), 0.5f, 2);
+    scene.addSphere(make_float3(0, 5, 0), 0.5f, 2);
     
     // Setup volume grid
     volume_grid.init(
@@ -110,9 +112,9 @@ void setup_scene(Scene& scene, Camera& camera, BVH& bvh, VolumeGrid& volume_grid
     
     // Add some volumetric media
     Volume smoke = {
-        glm::vec3(0.1f),       // sigma_a
-        glm::vec3(0.8f),       // sigma_s
-        glm::vec3(0.9f),       // sigma_t
+        make_float3(0.1f),       // sigma_a
+        make_float3(0.8f),       // sigma_s
+        make_float3(0.9f),       // sigma_t
         0.2f,                  // g
         0.5f                   // density
     };
