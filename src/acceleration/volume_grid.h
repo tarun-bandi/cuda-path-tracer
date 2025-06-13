@@ -17,7 +17,7 @@ public:
         resolution = res;
         bounds_min = min_bounds;
         bounds_max = max_bounds;
-        cell_size = (bounds_max - bounds_min) / make_float3(resolution);
+        cell_size = (bounds_max - bounds_min) / make_float3(float(resolution.x), float(resolution.y), float(resolution.z));
         
         // Allocate grid data
         size_t num_cells = resolution.x * resolution.y * resolution.z;
@@ -34,12 +34,12 @@ public:
     
     __device__ bool intersect(const Ray& ray, VolumeIntersection& isect) const {
         // Compute ray-box intersection
-        float3 inv_dir = make_float3(1.0f) / ray.direction;
+        float3 inv_dir = make_float3(1.0f / ray.direction.x, 1.0f / ray.direction.y, 1.0f / ray.direction.z);
         float3 t_min = (bounds_min - ray.origin) * inv_dir;
         float3 t_max = (bounds_max - ray.origin) * inv_dir;
         
-        float3 t1 = fminf(t_min, t_max);
-        float3 t2 = fmaxf(t_min, t_max);
+        float3 t1 = make_float3(fminf(t_min.x, t_max.x), fminf(t_min.y, t_max.y), fminf(t_min.z, t_max.z));
+        float3 t2 = make_float3(fmaxf(t_min.x, t_max.x), fmaxf(t_min.y, t_max.y), fmaxf(t_min.z, t_max.z));
         
         float t_enter = fmaxf(fmaxf(t1.x, t1.y), t1.z);
         float t_exit = fminf(fminf(t2.x, t2.y), t2.z);

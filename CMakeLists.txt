@@ -1,91 +1,56 @@
-cmake_minimum_required(VERSION 3.18)
-project(VolumetricPathTracer LANGUAGES CXX CUDA)
+cmake_minimum_required(VERSION 3.10)
+project(cuda_mandlebrot CUDA CXX)
 
-# Performance optimization settings
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CUDA_STANDARD 17)
+# Set CUDA architecture
+set(CMAKE_CUDA_ARCHITECTURES 75)
+set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find required packages
 find_package(CUDA REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(GLEW REQUIRED)
 
-# Set CUDA architecture
-set(CMAKE_CUDA_ARCHITECTURES 75 80 86 89)
+# Add GLM
+include(FetchContent)
+FetchContent_Declare(
+    glm
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG 0.9.9.8
+)
+FetchContent_MakeAvailable(glm)
 
 # Include directories
 include_directories(
     ${CUDA_INCLUDE_DIRS}
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/external
+    ${OPENGL_INCLUDE_DIR}
+    ${GLEW_INCLUDE_DIRS}
+    ${GLFW_INCLUDE_DIRS}
+    ${glm_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src
 )
 
-# Source files
-set(CUDA_SOURCES
-    src/kernels/path_tracing.cu
-    src/kernels/volume_integration.cu
-    src/kernels/subsurface_scattering.cu
-    src/kernels/denoising.cu
-)
-
-set(CPP_SOURCES
-    src/main.cpp
-    src/core/scene.cpp
-    src/core/camera.cpp
-    src/acceleration/bvh.cpp
-    src/acceleration/volume_grid.cpp
-    src/renderer.cpp
-    src/window.cpp
-)
-
-set(HEADERS
-    src/core/scene.h
-    src/core/camera.h
-    src/core/materials.h
-    src/core/volume.h
-    src/math/sampling.cuh
-    src/math/monte_carlo.cuh
-    src/math/phase_functions.cuh
-    src/acceleration/bvh.h
-    src/acceleration/volume_grid.h
-    src/renderer.h
-    src/window.h
-    src/common.h
+# Add source files
+file(GLOB_RECURSE SOURCES 
+    "src/*.cpp"
+    "src/*.cu"
+    "src/*.h"
 )
 
 # Create executable
-add_executable(VolumetricPathTracer ${CPP_SOURCES} ${CUDA_SOURCES} ${HEADERS})
-
-# Set CUDA properties
-set_property(TARGET VolumetricPathTracer PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+add_executable(${PROJECT_NAME} ${SOURCES})
 
 # Link libraries
-target_link_libraries(VolumetricPathTracer
+target_link_libraries(${PROJECT_NAME}
     ${CUDA_LIBRARIES}
+    ${CUDA_CUBLAS_LIBRARIES}
     ${OPENGL_LIBRARIES}
+    ${GLEW_LIBRARIES}
     glfw
-    curand
-)
-
-# Compiler flags
-target_compile_options(VolumetricPathTracer PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:
-        --use_fast_math
-        --relocatable-device-code=true
-        -Xcompiler=-Wall
-    >
-    $<$<COMPILE_LANGUAGE:CXX>:
-        -Wall -Wextra -O3
-    >
-)
-
-# Create assets directory if it doesn't exist
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/assets)
-
-# Copy assets if they exist
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
-    file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
-    message(STATUS "Assets directory copied successfully")
-else()
-    message(WARNING "Assets directory not found, continuing without assets")
-endif() 
+    pthread
+) 

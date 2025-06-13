@@ -68,25 +68,25 @@ void setup_scene(Scene& scene, Camera& camera, BVH& bvh, VolumeGrid& volume_grid
         0.5f,                         // roughness
         1.5f,                         // ior
         0.0f,                         // transmission
-        make_float3(0.0f)              // emission
+        make_float3(0.0f, 0.0f, 0.0f)  // emission
     };
     
     Material glass_material = {
-        make_float3(1.0f),             // albedo
+        make_float3(1.0f, 1.0f, 1.0f),  // albedo
         0.0f,                         // metallic
         0.0f,                         // roughness
         1.5f,                         // ior
         1.0f,                         // transmission
-        make_float3(0.0f)              // emission
+        make_float3(0.0f, 0.0f, 0.0f)  // emission
     };
     
     Material light_material = {
-        make_float3(0.0f),             // albedo
+        make_float3(0.0f, 0.0f, 0.0f),  // albedo
         0.0f,                         // metallic
         0.0f,                         // roughness
         1.0f,                         // ior
         0.0f,                         // transmission
-        make_float3(10.0f)             // emission
+        make_float3(10.0f, 10.0f, 10.0f)  // emission
     };
     
     // Add materials to scene
@@ -236,13 +236,11 @@ int main(int argc, char** argv) {
     }
 
     // Create texture
-    if (!headless_mode) {
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, nullptr);
-    }
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, nullptr);
 
     // Setup scene
     setup_scene(scene, camera, bvh, volume_grid);

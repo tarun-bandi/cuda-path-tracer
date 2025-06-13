@@ -1,37 +1,80 @@
-# CUDA Volumetric Path Tracer
+# CPU Mandelbrot
 
-A real-time volumetric path tracer implemented in CUDA, featuring:
-- Interactive camera controls
-- Volumetric rendering with Henyey-Greenstein phase function
-- Multiple importance sampling
-- Russian roulette for unbiased rendering
-- OpenGL integration for real-time display
+A CPU-based volumetric path tracer with support for participating media.
 
-## Running in Google Colab
+## Dependencies
 
-1. Open [Google Colab](https://colab.research.google.com)
-2. Upload the `setup_colab.ipynb` notebook
-3. Make sure to select a GPU runtime:
-   - Click "Runtime" -> "Change runtime type"
-   - Select "GPU" as the hardware accelerator
-4. Run all cells in the notebook
+### Required Dependencies
+
+1. **CMake** (3.10 or later)
+   - Download from [CMake Downloads](https://cmake.org/download/)
+   - Or install via package manager:
+     ```bash
+     # Ubuntu/Debian
+     sudo apt-get install cmake
+     
+     # macOS
+     brew install cmake
+     ```
+
+2. **OpenGL and GLFW**
+   - Ubuntu/Debian:
+     ```bash
+     sudo apt-get install libgl1-mesa-dev libglfw3-dev
+     ```
+   - macOS:
+     ```bash
+     brew install glfw
+     ```
+
+3. **GLEW**
+   - Ubuntu/Debian:
+     ```bash
+     sudo apt-get install libglew-dev
+     ```
+   - macOS:
+     ```bash
+     brew install glew
+     ```
+
+## Building
+
+1. Create a build directory:
+   ```bash
+   mkdir build
+   cd build
+   ```
+
+2. Configure with CMake:
+   ```bash
+   cmake ..
+   ```
+
+3. Build the project:
+   ```bash
+   make
+   ```
+
+## Running
+
+Run the executable:
+```bash
+./cuda_mandlebrot
+```
+
+For headless rendering:
+```bash
+./cuda_mandlebrot --headless
+```
 
 ## Features
 
-- Real-time interactive rendering
-- Volumetric light transport
+- CPU-based path tracing
+- Volumetric rendering
 - Multiple scattering
 - Depth of field
 - Subsurface scattering
-- Denoising
-
-## Scene Setup
-
-The default scene includes:
-- A ground plane
-- A glass sphere
-- A light source
-- A volumetric smoke plume
+- OpenGL integration for real-time display
 
 ## Controls
 
@@ -41,34 +84,6 @@ The default scene includes:
 - Scroll: Adjust FOV
 - ESC: Exit
 
-## Requirements
-
-- NVIDIA GPU with CUDA support
-- CUDA Toolkit
-- GLFW3
-- GLM
-- CMake
-
-## Building from Source
-
-```bash
-mkdir build
-cd build
-cmake ..
-make
-```
-
 ## License
 
-MIT License # Performance improvements
-# Add volume rendering support
-# Add advanced materials
-# Add interactive features
-# Performance improvements
-# Add volume rendering support
-# Add advanced materials
-# Add interactive features
-# Performance improvements
-# Add volume rendering support
-# Add advanced materials
-# Add interactive features
+This project is licensed under the MIT License - see the LICENSE file for details.

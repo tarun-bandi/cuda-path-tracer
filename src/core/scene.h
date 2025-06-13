@@ -10,7 +10,11 @@ struct Ray {
     float tmin;
     float tmax;
 
-    __host__ __device__ Ray() : origin(make_float3(0.0f)), direction(make_float3(0.0f)), tmin(0.001f), tmax(1e30f) {}
+    __host__ __device__ Ray() : 
+        origin(make_float3(0.0f, 0.0f, 0.0f)), 
+        direction(make_float3(0.0f, 0.0f, 0.0f)), 
+        tmin(0.001f), 
+        tmax(1e30f) {}
     
     __host__ __device__ Ray(const float3& o, const float3& d, float t_min = 0.001f, float t_max = 1e30f) 
         : origin(o), direction(d), tmin(t_min), tmax(t_max) {}
@@ -191,6 +195,11 @@ class Scene {
 public:
     std::vector<Primitive> primitives;
     std::vector<Material> materials;
+    std::vector<Volume> volumes;
+    std::vector<Light> lights;
+    std::vector<Sphere> spheres;
+    std::vector<Box> boxes;
+    std::vector<Plane> planes;
     EnvironmentMap environment_map;
     
     // Device copies
