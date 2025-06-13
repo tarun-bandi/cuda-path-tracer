@@ -2,26 +2,19 @@
 
 #include "../common.h"
 #include "materials.h"
+#include <vector>
 
 struct Ray {
     float3 origin;
     float3 direction;
-    float tmin, tmax;
-    float3 throughput;
-    int depth;
+    float tmin;
+    float tmax;
+
+    __host__ __device__ Ray() : origin(make_float3(0.0f)), direction(make_float3(0.0f)), tmin(0.001f), tmax(1e30f) {}
     
-    __host__ __device__ Ray() : 
-        origin(make_float3(0.0f)), 
-        direction(make_float3(0.0f, 0.0f, 1.0f)),
-        tmin(0.001f), 
-        tmax(1e30f),
-        throughput(make_float3(1.0f)),
-        depth(0) 
-    {}
-    
-    __host__ __device__ Ray(const float3& o, const float3& d, float t_min = 0.001f, float t_max = 1e30f) :
-        origin(o), direction(d), tmin(t_min), tmax(t_max), throughput(make_float3(1.0f)), depth(0) {}
-    
+    __host__ __device__ Ray(const float3& o, const float3& d, float t_min = 0.001f, float t_max = 1e30f) 
+        : origin(o), direction(d), tmin(t_min), tmax(t_max) {}
+
     __host__ __device__ float3 at(float t) const {
         return origin + t * direction;
     }
@@ -185,15 +178,20 @@ struct Light {
         position(pos), emission(emit), radius(r), type(t) {}
 };
 
+struct EnvironmentMap {
+    __host__ __device__ float3 sample(const float3& direction) const {
+        // Simple sky gradient
+        float t = 0.5f * (direction.y + 1.0f);
+        return (1.0f - t) * make_float3(1.0f, 1.0f, 1.0f) + t * make_float3(0.5f, 0.7f, 1.0f);
+    }
+};
+
 // Scene structure containing all geometry and materials
 class Scene {
 public:
-    std::vector<Sphere> spheres;
-    std::vector<Box> boxes;
-    std::vector<Plane> planes;
+    std::vector<Primitive> primitives;
     std::vector<Material> materials;
-    std::vector<Volume> volumes;
-    std::vector<Light> lights;
+    EnvironmentMap environment_map;
     
     // Device copies
     Sphere* d_spheres;
@@ -215,16 +213,31 @@ public:
         cleanup();
     }
     
-    void addSphere(const float3& center, float radius, int material_id) {
-        spheres.emplace_back(center, radius, material_id);
-    }
-    
-    void addBox(const float3& min_corner, const float3& max_corner, int material_id) {
-        boxes.emplace_back(min_corner, max_corner, material_id);
-    }
-    
     void addPlane(const float3& point, const float3& normal, int material_id) {
-        planes.emplace_back(point, normal, material_id);
+        Primitive p;
+        p.type = PRIMITIVE_PLANE;
+        p.plane.point = point;
+        p.plane.normal = normalize(normal);
+        p.material_id = material_id;
+        primitives.push_back(p);
+    }
+    
+    void addSphere(const float3& center, float radius, int material_id) {
+        Primitive p;
+        p.type = PRIMITIVE_SPHERE;
+        p.sphere.center = center;
+        p.sphere.radius = radius;
+        p.material_id = material_id;
+        primitives.push_back(p);
+    }
+    
+    void addBox(const float3& min, const float3& max, int material_id) {
+        Primitive p;
+        p.type = PRIMITIVE_BOX;
+        p.box.min = min;
+        p.box.max = max;
+        p.material_id = material_id;
+        primitives.push_back(p);
     }
     
     int addMaterial(const Material& material) {

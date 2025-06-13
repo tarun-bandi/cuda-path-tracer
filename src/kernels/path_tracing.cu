@@ -352,9 +352,63 @@ __global__ void path_trace_kernel(
 
 // Helper function implementations
 __device__ float3 sample_material(const Material& material, const float3& wo, const float3& normal, float3& wi, curandState* state, float* pdf) {
-    // Implement material sampling here
-    // This is a placeholder - you'll need to implement the actual material sampling logic
-    return make_float3(1.0f);
+    float3 f;
+    float r1 = curand_uniform(state);
+    float r2 = curand_uniform(state);
+
+    if (material.type == MATERIAL_LAMBERTIAN) {
+        // Cosine weighted hemisphere sampling
+        float cos_theta = sqrtf(r1);
+        float sin_theta = sqrtf(1.0f - cos_theta * cos_theta);
+        float phi = 2.0f * M_PI * r2;
+
+        float3 local_wi = make_float3(
+            sin_theta * cosf(phi),
+            sin_theta * sinf(phi),
+            cos_theta
+        );
+
+        // Transform to world space
+        float3 tangent = normalize(cross(normal, fabsf(normal.y) < 0.999f ? make_float3(0.0f, 1.0f, 0.0f) : make_float3(1.0f, 0.0f, 0.0f)));
+        float3 bitangent = cross(normal, tangent);
+        wi = normalize(tangent * local_wi.x + bitangent * local_wi.y + normal * local_wi.z);
+
+        *pdf = cos_theta / M_PI;
+        f = material.albedo / M_PI;
+    }
+    else if (material.type == MATERIAL_METAL) {
+        // Perfect reflection
+        wi = reflect(wo, normal);
+        *pdf = 1.0f;
+        f = material.albedo;
+    }
+    else if (material.type == MATERIAL_GLASS) {
+        float cos_theta = dot(wo, normal);
+        float refraction_ratio = cos_theta > 0.0f ? 1.0f / material.ior : material.ior;
+        float sin_theta2 = refraction_ratio * refraction_ratio * (1.0f - cos_theta * cos_theta);
+
+        if (sin_theta2 > 1.0f) {
+            // Total internal reflection
+            wi = reflect(wo, normal);
+            *pdf = 1.0f;
+            f = material.albedo;
+        }
+        else {
+            // Refraction
+            float cos_theta2 = sqrtf(1.0f - sin_theta2);
+            wi = normalize(refraction_ratio * -wo + (refraction_ratio * cos_theta - cos_theta2) * normal);
+            *pdf = 1.0f;
+            f = material.albedo;
+        }
+    }
+    else {
+        // Default to diffuse
+        wi = normalize(normal + random_in_unit_sphere(state));
+        *pdf = 0.5f / M_PI;
+        f = material.albedo / M_PI;
+    }
+
+    return f;
 }
 
 __device__ bool near_zero(const float3& v) {
